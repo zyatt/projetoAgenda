@@ -9,7 +9,7 @@ from reportlab.pdfgen import canvas
 import numpy as np
 import cv2
 import json
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 # Configura a localidade para português
 locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
@@ -17,7 +17,7 @@ locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 # Lista com os dias da semana corrigidos
 dias_da_semana = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 
-def create_labeled_input_area(master, label_text, x_label, y_label, width_label, height_label, x_input, y_input, width_input, height_input, num_lines):
+def create_labeled_input_area(master, label_text, x_label, y_label, width_label, height_label, x_input, y_input, width_input, height_input, num_lines, max_chars):
     # Criar o label
     label = tk.Label(master, text=label_text, bg="white", anchor="center", font=("Arial", 9, "bold"))
     label.place(x=x_label, y=y_label, width=width_label, height=height_label)
@@ -28,7 +28,21 @@ def create_labeled_input_area(master, label_text, x_label, y_label, width_label,
 
     # Calcular o espaçamento das linhas (altura total dividida pelo número de linhas)
     line_height = height_input // num_lines
-    margin = 12  # Espaço em branco antes e depois das linhas
+    margin = 11  # Espaço em branco antes e depois das linhas
+
+    # Função para limitar a entrada considerando o espaço como meio caractere
+    def limit_chars_input(char, value):
+        count = 0
+        for c in value:
+            # Considera espaço como meio caractere
+            if c == " ":
+                count += 0.5
+            else:
+                count += 1
+        
+        if count > max_chars:
+            return False
+        return True
 
     # Desenhar as linhas no Canvas (com recuo no início e no fim)
     for i in range(1, num_lines + 1):
@@ -38,7 +52,43 @@ def create_labeled_input_area(master, label_text, x_label, y_label, width_label,
         entry = tk.Entry(master, bd=0, font=("Arial", 10), fg="black", bg="white")
         entry.place(x=x_input + margin, y=y_input + (i - 1) * line_height + 2, width=width_input - 2 * margin, height=line_height - 2)
 
+        # Limitar os caracteres no Entry
+        entry.config(validate="key", validatecommand=(master.register(limit_chars_input), '%S', '%P'))
+
     return canvas
+
+def create_rotated_label(master, text, x, y, width, height, angle=90):
+    # Cria uma imagem com fundo transparente
+    image = Image.new("RGBA", (width, height), (255, 255, 255, 0))  # Cria uma imagem em RGBA (com transparência)
+    draw = ImageDraw.Draw(image)
+    
+    # Definir a fonte e tamanho para o texto
+    font = ImageFont.truetype("ariblk.ttf", 30)  # Fonte e tamanho do texto
+    
+    # Usar textbbox em vez de textsize
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]  # Largura
+    text_height = bbox[3] - bbox[1]  # Altura
+    
+    # Posicionar o texto no centro da imagem
+    text_x = (width - text_width) // 2
+    text_y = (height - text_height) // 5
+    
+    # Desenhar o texto na imagem
+    draw.text((text_x, text_y), text, font=font, fill="white")
+    
+    # Rotacionar a imagem
+    rotated_image = image.rotate(angle, expand=True)
+    
+    # Converter a imagem para o formato do Tkinter
+    rotated_image_tk = ImageTk.PhotoImage(rotated_image)
+    
+    # Exibir a imagem rotacionada em uma label
+    label = tk.Label(master, image=rotated_image_tk, bd=0, highlightthickness=0, bg="#6d6e70")
+    label.image = rotated_image_tk  # Manter uma referência à imagem
+    label.place(x=x, y=y, width=width, height=height)
+
+    return label
 
 # Dicionário para armazenar os dados da agenda
 agenda_data = {}
@@ -59,9 +109,12 @@ def save_agenda_data():
                 label = widget.master.winfo_children()[0].cget("text")  # Obter o texto do label
                 value = widget.get().strip()  # Obter o valor do campo e remover espaços
 
-                if value:  # Salvar apenas se o valor não estiver vazio
-                    # Usar o índice para distinguir entre as entradas
-                    current_data[f"{label}_{entry_index}"] = value
+                # Se o valor estiver vazio, substituir por um caractere invisível
+                if not value:
+                    value = "\u200B"  # Caractere invisível (espaço não quebrável)
+
+                # Salvar o valor no dicionário
+                current_data[f"{label}_{entry_index}"] = value
 
         # Carregar os dados antigos, se existirem
         try:
@@ -70,18 +123,23 @@ def save_agenda_data():
         except FileNotFoundError:
             agenda_data = {}
 
-        # Adicionar o novo conjunto de dados ao dicionário
+        # Se houver dados antigos para a data atual, vamos removê-los
         if data_id in agenda_data:
-            agenda_data[data_id].update(current_data)  # Atualiza os dados existentes
+            # Atualiza os dados existentes com os novos
+            agenda_data[data_id].update(current_data)
         else:
+            # Se não existir, cria uma nova entrada para a data
             agenda_data[data_id] = current_data
 
         # Salvar no arquivo JSON
         with open('agenda_data.json', 'w', encoding='utf-8') as f:
             json.dump(agenda_data, f, ensure_ascii=False, indent=4)
 
+        #messagebox.showinfo("Sucesso", "Agenda salva com sucesso!")
+
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao salvar a agenda: {e}")
+
 
 # Função para carregar os dados da agenda
 def load_agenda_data(date_selected=None):
@@ -118,6 +176,10 @@ def on_ctrl_s(event):
     # Salvar a agenda quando Ctrl+S for pressionado
     save_agenda_data()
 
+def auto_save():
+    save_agenda_data()  # Salva os dados
+    root.after(1000, auto_save)  # Agendar para salvar a cada 1 segundos (1000 ms)
+
 def open_calendar():
     global calendar_open
     if calendar_open:
@@ -143,7 +205,14 @@ def open_calendar():
     calendar.bind("<<CalendarSelected>>", on_calendar_click)
 
     # Botão de confirmar
-    confirm_button = tk.Button(top_window, text="Confirmar", command=lambda: confirm_date(top_window))
+    confirm_button = tk.Button(
+        top_window, 
+        text="Confirmar", 
+        command=lambda: confirm_date(top_window), 
+        font=("Arial Black", 12),  # Fonte Arial Black, tamanho 12
+        bg="#6d6e70",  # Cor de fundo (verde)
+        fg="white"  # Cor do texto (branco)
+    )
     confirm_button.pack(pady=10)
 
     calendar_open = True  # Marca que o calendário foi aberto
@@ -168,23 +237,31 @@ def generate_agenda_for_date(date):
     weekday = dias_da_semana[date.weekday()].capitalize()   # Usando a lista de dias da semana
     month = date.strftime("%b").upper()  # Mês abreviado em português
 
-    # Cabeçalho dinâmico
-    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 35, "bold")).place(x=20, y=10, width=80, height=60)
+    # Obter o ano atual
+    year = datetime.now().year
 
-    weekday_label = tk.Label(agenda_frame, text=weekday, bg="#484444", fg="white", font=("Arial Black", 20))
-    weekday_label.place(x=120, y=20, width=360, height=40)
+    # Exibir o ano no canto superior direito
+    year_label = tk.Label(root, text=str(year), bg="#484444", fg="white", font=("Arial Black", 20, "bold"))
+    year_label.place(x=644, y=10)  # Ajuste as coordenadas x e y conforme necessário
 
-    tk.Label(agenda_frame, text=month, bg="#6d6e70", fg="#ffffff", font=("Arial Black", 20, "bold")).place(x=500, y=10, width=80, height=60)
+     # Cabeçalho dinâmico
+    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 30, "bold")).place(x=150, y=10, width=80, height=60)
+
+    weekday_label = tk.Label(agenda_frame, text=weekday, bg="#484444", fg="white", font=("Arial Black", 15))
+    weekday_label.place(x=240, y=20, width=260, height=40)
 
     # master, label_text, x_label, y_label, width_label, height_label, x_input, y_input, width_input, height_input, num_lines
-    create_labeled_input_area(agenda_frame, "ORÇAMENTOS ENVIADOS:", 25, 80, 271, 20, 25, 100, 271, 140, 7)
-    create_labeled_input_area(agenda_frame, "PEDIDO:", 304, 80, 276, 20, 304, 100, 276, 140, 7)
-    create_labeled_input_area(agenda_frame, "ARQUIVOS PRODUZIDOS:", 25, 247, 271, 20, 25, 267, 271, 140, 7)
-    create_labeled_input_area(agenda_frame, "EM CONTATO:", 304, 247, 276, 20, 304, 267, 276, 315, 16)
-    create_labeled_input_area(agenda_frame, "ATEND. BALCÃO:", 25, 415, 132, 25, 25, 435, 132, 60, 3)
-    create_labeled_input_area(agenda_frame, "PROSPECÇÃO:", 165, 415, 130, 20, 165, 435, 130, 147, 7)
-    create_labeled_input_area(agenda_frame, "VISITAS:", 25, 502, 132, 20, 25, 522, 132, 60, 3)
-    create_labeled_input_area(agenda_frame, "PENDÊNCIAS:", 25, 590, 555, 20, 25, 610, 555, 140, 7)
+    create_labeled_input_area(agenda_frame, "ORÇAMENTOS ENVIADOS:", 25, 80, 271, 20, 25, 100, 271, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "PEDIDO:", 304, 80, 276, 20, 304, 100, 276, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "ARQUIVOS PRODUZIDOS:", 25, 247, 271, 20, 25, 267, 271, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "EM CONTATO:", 304, 247, 276, 20, 304, 267, 276, 315, 16, 28)
+    create_labeled_input_area(agenda_frame, "ATEND. BALCÃO:", 25, 415, 132, 25, 25, 435, 132, 60, 3, 12)
+    create_labeled_input_area(agenda_frame, "VISITAS:", 25, 502, 132, 20, 25, 522, 132, 60, 3, 12)
+    create_labeled_input_area(agenda_frame, "PROSPECÇÃO:", 165, 415, 130, 20, 165, 435, 130, 147, 7, 12)
+    create_labeled_input_area(agenda_frame, "PENDÊNCIAS:", 25, 590, 555, 20, 25, 610, 555, 140, 7, 60)
+    
+    # Rotacionar a label do mês
+    create_rotated_label(agenda_frame, month, 530, 10, 90, 90)
 
     # Carregar os dados salvos
     load_agenda_data()
@@ -215,44 +292,6 @@ def confirm_date(top_window):
     calendar_open = False
 
 calendar_open = False  # Variável para rastrear se o calendário foi aberto
-
-def open_calendar():
-    global calendar_open
-    if calendar_open:
-        return  # Se o calendário já foi aberto, não faz nada
-    
-    # Cria uma nova janela para o calendário
-    top_window = tk.Toplevel(root)
-    top_window.title("Calendário")
-    top_window.geometry("300x350")
-
-    # Adiciona uma label para mostrar a data selecionada
-    global date_label
-    date_label = tk.Label(top_window, text="Selecione uma data", font=("Arial", 12))
-    date_label.pack(pady=10)
-
-    # Calendário interativo
-    global calendar
-    calendar = Calendar(top_window, selectmode='day', year=datetime.today().year, month=datetime.today().month, day=datetime.today().day, locale='pt_BR')
-
-    calendar.pack(padx=20, pady=20)
-
-    # Detecta o clique no calendário e atualiza a data selecionada
-    calendar.bind("<<CalendarSelected>>", on_calendar_click)
-
-    # Botão de confirmar
-    confirm_button = tk.Button(top_window, text="Confirmar", command=lambda: confirm_date(top_window))
-    confirm_button.pack(pady=10)
-
-    calendar_open = True  # Marca que o calendário foi aberto
-
-    # Ação para fechar a janela e marcar o calendário como fechado
-    def on_close():
-        global calendar_open
-        calendar_open = False
-        top_window.destroy()
-
-    top_window.protocol("WM_DELETE_WINDOW", on_close)  # Quando a janela for fechada, atualiza a variável
 
 def export_agenda_to_pdf():
     try:
@@ -324,6 +363,7 @@ def main():
     root.title("Agenda")
     root.geometry("800x800")
     root.configure(bg="#484444")
+    root.focus()  # Garantir que o foco está no root
 
     # Impedir que a janela seja redimensionada
     root.resizable(False, False)
@@ -344,37 +384,71 @@ def main():
     weekday = dias_da_semana[today.weekday()].capitalize()  # Usando a lista de dias da semana
     month = today.strftime("%b").upper()  # Mês abreviado em português
 
+    # Obter o ano atual
+    year = datetime.now().year
+
+    # Exibir o ano no canto superior direito
+    year_label = tk.Label(root, text=str(year), bg="#484444", fg="white", font=("Arial Black", 20, "bold"))
+    year_label.place(x=644, y=10)  # Ajuste as coordenadas x e y conforme necessário
+
     # Cabeçalho dinâmico
-    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 30, "bold")).place(x=140, y=10, width=80, height=60)
+    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 30, "bold")).place(x=150, y=10, width=80, height=60)
 
     weekday_label = tk.Label(agenda_frame, text=weekday, bg="#484444", fg="white", font=("Arial Black", 15))
-    weekday_label.place(x=215, y=20, width=260, height=40)
-
-    tk.Label(agenda_frame, text=month, bg="#6d6e70", fg="#ffffff", font=("Arial Black", 20, "bold")).place(x=500, y=10, width=80, height=60)
+    weekday_label.place(x=240, y=20, width=260, height=40)
 
     # master, label_text, x_label, y_label, width_label, height_label, x_input, y_input, width_input, height_input, num_lines
-    create_labeled_input_area(agenda_frame, "ORÇAMENTOS ENVIADOS:", 25, 80, 271, 20, 25, 100, 271, 140, 7)
-    create_labeled_input_area(agenda_frame, "PEDIDO:", 304, 80, 276, 20, 304, 100, 276, 140, 7)
-    create_labeled_input_area(agenda_frame, "ARQUIVOS PRODUZIDOS:", 25, 247, 271, 20, 25, 267, 271, 140, 7)
-    create_labeled_input_area(agenda_frame, "EM CONTATO:", 304, 247, 276, 20, 304, 267, 276, 315, 16)
-    create_labeled_input_area(agenda_frame, "ATEND. BALCÃO:", 25, 415, 132, 25, 25, 435, 132, 60, 3)
-    create_labeled_input_area(agenda_frame, "PROSPECÇÃO:", 165, 415, 130, 20, 165, 435, 130, 147, 7)
-    create_labeled_input_area(agenda_frame, "VISITAS:", 25, 502, 132, 20, 25, 522, 132, 60, 3)
-    create_labeled_input_area(agenda_frame, "PENDÊNCIAS:", 25, 590, 555, 20, 25, 610, 555, 140, 7)
+    create_labeled_input_area(agenda_frame, "ORÇAMENTOS ENVIADOS:", 25, 80, 271, 20, 25, 100, 271, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "PEDIDO:", 304, 80, 276, 20, 304, 100, 276, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "ARQUIVOS PRODUZIDOS:", 25, 247, 271, 20, 25, 267, 271, 140, 7, 28)
+    create_labeled_input_area(agenda_frame, "EM CONTATO:", 304, 247, 276, 20, 304, 267, 276, 315, 16, 28)
+    create_labeled_input_area(agenda_frame, "ATEND. BALCÃO:", 25, 415, 132, 25, 25, 435, 132, 60, 3, 12)
+    create_labeled_input_area(agenda_frame, "VISITAS:", 25, 502, 132, 20, 25, 522, 132, 60, 3, 12)
+    create_labeled_input_area(agenda_frame, "PROSPECÇÃO:", 165, 415, 130, 20, 165, 435, 130, 147, 7, 12)
+    create_labeled_input_area(agenda_frame, "PENDÊNCIAS:", 25, 590, 555, 20, 25, 610, 555, 140, 7, 60)
+    
+    # Rotacionar a label do mês
+    create_rotated_label(agenda_frame, month, 530, 10, 90, 90)
 
-    # Carregar os dados salvos ou gerar agenda com data atual
+    # Carregar os dados salvos ou gerar agenda com data atual  
     load_agenda_data()  # Carrega dados salvos, se existirem
-
+    
+    # Iniciar o salvamento automático
+    auto_save()  # Iniciar o salvamento periódico    
+    
     # Botão para abrir o calendário em outra janela
-    open_calendar_button = tk.Button(root, text="Alterar Data", command=open_calendar)
+    open_calendar_button = tk.Button(
+        root, 
+        text="Alterar Data", 
+        command=open_calendar, 
+        font=("Arial Black", 12),  # Fonte Arial Black, tamanho 12
+        bg="#6d6e70",  # Cor de fundo
+        fg="white"  # Cor do texto (branca)
+    )
     open_calendar_button.place(x=616, y=80, width=150, height=40)
 
-    export_button = tk.Button(root, text="Exportar", command=export_agenda_to_pdf)
+    # Botão Exportar
+    export_button = tk.Button(
+        root, 
+        text="Exportar", 
+        command=export_agenda_to_pdf, 
+        font=("Arial Black", 12), 
+        bg="#6d6e70",  # Cor de fundo
+        fg="white"
+    )
     export_button.place(x=616, y=140, width=150, height=40)
 
-    # Botão Salvar (logo abaixo do Exportar)
-    save_button = tk.Button(root, text="Salvar", command=save_agenda_data)
+    # Botão Salvar
+    save_button = tk.Button(
+        root, 
+        text="Salvar", 
+        command=save_agenda_data, 
+        font=("Arial Black", 12), 
+        bg="#6d6e70",  # Cor de fundo
+        fg="white"
+    )
     save_button.place(x=616, y=200, width=150, height=40)
+
 
     # Capturar o evento Ctrl+S para salvar
     root.bind("<Control-s>", on_ctrl_s)
