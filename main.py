@@ -9,6 +9,7 @@ from reportlab.pdfgen import canvas
 import numpy as np
 import cv2
 import json
+from PIL import Image, ImageTk
 
 # Configura a localidade para português
 locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
@@ -269,7 +270,7 @@ def export_agenda_to_pdf():
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
         # Se a correspondência for forte o suficiente, encontrar a posição da agenda
-        if max_val >= 0.9:
+        if max_val >= 0.6:
             agenda_region_tuple = (max_loc[0], max_loc[1], agenda_width, agenda_height)
         else:
             messagebox.showerror("Erro", "Não foi possível localizar a agenda na tela. Verifique se ela está visível.")
@@ -302,6 +303,21 @@ def export_agenda_to_pdf():
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao exportar a agenda: {e}")
 
+# Função para carregar e redimensionar a imagem
+def carregar_imagem():
+    try:
+        # Abre a imagem original
+        original_image = Image.open("logo.png")
+        # Redimensiona a imagem
+        nova_largura, nova_altura = 110, 60
+        resized_image = original_image.resize((nova_largura, nova_altura), Image.LANCZOS)
+        # Converte a imagem para o formato do Tkinter
+        logo_image = ImageTk.PhotoImage(resized_image)
+        return logo_image
+    except Exception as e:
+        print(f"Erro ao carregar a imagem: {e}")
+        return None
+
 def main():
     global root, agenda_frame
     root = tk.Tk()
@@ -315,6 +331,12 @@ def main():
     # Criar um frame para a agenda
     agenda_frame = tk.Frame(root, bg="#484444")
     agenda_frame.place(x=0, y=0, width=600, height=800)
+    
+    # Carregar e exibir a imagem
+    logo_image = carregar_imagem()
+    if logo_image:
+        logo_label = tk.Label(root, image=logo_image, bd=0, highlightthickness=0)  # Remover bordas
+        logo_label.place(x=10, y=10)  # Altere x e y conforme necessário
 
     # Obter data atual
     today = datetime.today()
@@ -323,10 +345,10 @@ def main():
     month = today.strftime("%b").upper()  # Mês abreviado em português
 
     # Cabeçalho dinâmico
-    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 35, "bold")).place(x=20, y=10, width=80, height=60)
+    tk.Label(agenda_frame, text=str(day_number), bg="#484444", fg="white", font=("Arial Black", 30, "bold")).place(x=140, y=10, width=80, height=60)
 
-    weekday_label = tk.Label(agenda_frame, text=weekday, bg="#484444", fg="white", font=("Arial Black", 20))
-    weekday_label.place(x=120, y=20, width=360, height=40)
+    weekday_label = tk.Label(agenda_frame, text=weekday, bg="#484444", fg="white", font=("Arial Black", 15))
+    weekday_label.place(x=215, y=20, width=260, height=40)
 
     tk.Label(agenda_frame, text=month, bg="#6d6e70", fg="#ffffff", font=("Arial Black", 20, "bold")).place(x=500, y=10, width=80, height=60)
 
