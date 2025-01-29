@@ -1,4 +1,4 @@
-[Aplicativo de Agenda Tkinter]
+Aplicativo de Agenda Tkinter
 
 - Visão Geral
 • Este aplicativo Python, construído utilizando a biblioteca tkinter, funciona como uma agenda para gerenciar tarefas diárias. 
