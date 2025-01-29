@@ -123,7 +123,7 @@ def save_agenda_data():
         except FileNotFoundError:
             agenda_data = {}
 
-        # Se houver dados antigos para a data atual, vamos removê-los
+        # Se houver dados antigos para a data atual, vamos removê-los ou atualizar
         if data_id in agenda_data:
             # Atualiza os dados existentes com os novos
             agenda_data[data_id].update(current_data)
@@ -135,7 +135,7 @@ def save_agenda_data():
         with open('agenda_data.json', 'w', encoding='utf-8') as f:
             json.dump(agenda_data, f, ensure_ascii=False, indent=4)
 
-        #messagebox.showinfo("Sucesso", "Agenda salva com sucesso!")
+       # messagebox.showinfo("Sucesso", "Agenda salva com sucesso!")
 
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao salvar a agenda: {e}")
