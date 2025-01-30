@@ -76,7 +76,7 @@ class App(tk.Tk):
         for label, entries in self.dados_entries.items():
             dados[label] = [entry.get() for entry in entries]
 
-        arquivo_json = os.path.join("assets", "dados.json")
+        arquivo_json = 'dados.json'
 
         if os.path.exists(arquivo_json):
             with open(arquivo_json, 'r', encoding='utf-8') as f:
@@ -93,7 +93,7 @@ class App(tk.Tk):
         if not self.data_selecionada:
             self.data_selecionada = datetime.today()
 
-        arquivo_json = os.path.join("assets", "dados.json")
+        arquivo_json = 'dados.json'
 
         if not os.path.exists(arquivo_json):
             return
