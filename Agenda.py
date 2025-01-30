@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, PhotoImage
 from tkcalendar import Calendar
 from PIL import Image, ImageGrab, ImageDraw, ImageFont, ImageTk
 from fpdf import FPDF
@@ -15,11 +15,16 @@ class App(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self.title("Agenda")
-        self.iconbitmap("assets/agenda_icon.ico")
         self.canvas = tk.Frame(self, width=800, height=780, bg="#484444")
         self.resizable(False, False)
         self.focus()
         self.centralizar_janela()
+
+        try:
+            self.icon_image = PhotoImage(file="assets/agenda_icon.png")
+            self.iconphoto(True, self.icon_image)
+        except Exception as e:
+            print("Erro ao carregar ícone:", e)
 
         self.data_selecionada = None
         self.dia_label = None
