@@ -130,7 +130,8 @@ class App(tk.Tk):
         self.geometry(f"{window_width}x{window_height}+{new_x}+{new_y}")
 
     def open_calendar(self):
-        if hasattr(self, 'calendar_window') and self.calendar_window.winfo_exists():
+        if hasattr(self, 'calendar_window') and self.calendar_window and self.calendar_window.winfo_exists():
+            self.calendar_window.lift()
             return
 
         self.calendar_window = tk.Toplevel(self)
