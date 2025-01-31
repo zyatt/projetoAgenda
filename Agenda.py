@@ -16,44 +16,46 @@ class CEntry(Entry):
     def __init__(self, parent, *args, **kwargs):
         Entry.__init__(self, parent, *args, **kwargs)
 
-        self.changes = [""]
-        self.steps = int()
-
-        self.context_menu = Menu(self, tearoff=0)
-        self.context_menu.add_command(label="Cut")
-        self.context_menu.add_command(label="Copy")
-        self.context_menu.add_command(label="Paste")
-
-        self.bind("<Button-3>", self.popup)
+        self.undo_stack = [""]
+        self.redo_stack = []
+        self.steps = 0 
 
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-y>", self.redo)
-
-        self.bind("<Key>", self.add_changes)
-
-    def popup(self, event):
-        self.context_menu.post(event.x_root, event.y_root)
-        self.context_menu.entryconfigure("Cut", command=lambda: self.event_generate("<<Cut>>"))
-        self.context_menu.entryconfigure("Copy", command=lambda: self.event_generate("<<Copy>>"))
-        self.context_menu.entryconfigure("Paste", command=lambda: self.event_generate("<<Paste>>"))
-
+        self.bind("<KeyRelease>", self.add_changes)
+    
     def undo(self, event=None):
-        if self.steps != 0:
+        if self.steps > 0:
+
+            self.redo_stack.append(self.undo_stack[self.steps])
             self.steps -= 1
+
             self.delete(0, END)
-            self.insert(END, self.changes[self.steps])
+            self.insert(END, self.undo_stack[self.steps])
 
     def redo(self, event=None):
-        if self.steps < len(self.changes):
-            self.delete(0, END)
-            self.insert(END, self.changes[self.steps])
+        if self.redo_stack:
             self.steps += 1
+            if self.steps >= len(self.undo_stack):
+                self.undo_stack.append(self.redo_stack[-1])
+            else:
+                self.undo_stack[self.steps] = self.redo_stack[-1]
+
+            self.delete(0, END)
+            self.insert(END, self.redo_stack.pop())
 
     def add_changes(self, event=None):
-        if self.get() != self.changes[-1]:
-            self.changes.append(self.get())
+        current_text = self.get()
+        
+        if not self.undo_stack or current_text != self.undo_stack[self.steps]:
+            if self.steps < len(self.undo_stack) - 1:
+                self.undo_stack = self.undo_stack[:self.steps + 1]
+
+            self.undo_stack.append(current_text)
             self.steps += 1
 
+            self.redo_stack.clear()
+            
 class App(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
@@ -89,9 +91,6 @@ class App(tk.Tk):
         self.create_labeled_input_area(self, "VISITAS:", 30, 630, 140, 28, 30, 650, 140, 60, 3, 12)
         self.create_labeled_input_area(self, "PROSPECÇÃO:", 180, 540, 170, 28, 180, 560, 170, 150, 6, 16)
         self.create_labeled_input_area(self, "PENDÊNCIAS:", 30, 720, 650, 28, 30, 740, 650, 220, 10, 69)
-    
-        self.undo_stack = []
-        self.redo_stack = []
         
         self.criar_labels_data()
 
@@ -287,7 +286,7 @@ class App(tk.Tk):
         canvas.place(x=x_input, y=y_input, width=width_input, height=height_input)
 
         line_height = height_input // num_lines
-        margin = 12
+        margin = 14
         entries = []
 
         def limit_chars_input(char, value):
@@ -304,15 +303,15 @@ class App(tk.Tk):
         for i in range(1, num_lines + 1):
             canvas.create_line(margin, i * line_height, width_input - margin, i * line_height, fill="black", width=2)
 
-            entry = tk.CEntry(master, bd=0, font=("Arial", 10), fg="black", bg="white")
+            entry = CEntry(master, bd=0, font=("Arial", 10), fg="black", bg="white")
             entry.place(x=x_input + margin, y=y_input + (i - 1) * line_height + 2, width=width_input - 2 * margin, height=line_height - 2)
-
+            
             entry.config(validate="key", validatecommand=(master.register(limit_chars_input), '%S', '%P'))
             entries.append(entry)
 
             entry.bind("<Up>", lambda event, idx=i-1: self.move_focus(event, entries, idx, -1))
             entry.bind("<Down>", lambda event, idx=i-1: self.move_focus(event, entries, idx, 1))
-
+            
         if entries:
             entries[0].focus_set()
 

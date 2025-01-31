@@ -10,6 +10,7 @@ Permite que os usuários insiram e gerenciem várias informações e as exportem
 • Entrada de Dados: Vários campos de entrada para tarefas como "Orçamentos Enviados", "Pedido", "Arquivos Produzidos", entre outros.
 • Salvar Dados Automaticamente: Os dados são salvos automaticamente em um arquivo JSON e também é possível salvar manualmente usando um atalho de teclado.
 • Exportar para PDF: Gera um PDF com o layout atual da tela.
+• Exportar para PNG: Gera um PNG com o layout atual da tela.
 • Manipulação de Imagens e Logo: Suporta exibição de imagens, como logotipos.
 • Áreas de Entrada Personalizáveis: Campos de entrada dinâmicos com limites de caracteres ajustáveis e layouts configuráveis.
 
