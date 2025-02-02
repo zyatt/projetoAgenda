@@ -21,5 +21,5 @@ Permite que os usuários insiram e gerenciem várias informações e as exportem
 • Salvar Dados: O aplicativo salva automaticamente os dados no arquivo dados.json, e você pode salvar manualmente usando o atalho de teclado Ctrl+S.
 • Salvando Dados: O aplicativo salva os dados automaticamente a cada segundo e os armazena com base na data selecionada. Se não houver dados disponíveis para a data selecionada, os campos serão limpos.
 
-- Exportação para PDF:
-• Ao exportar para PDF, uma captura de tela da janela atual é feita e incluída no arquivo PDF.
+- Exportação para PDF/PNG:
+• Ao exportar para PDF/PNG, uma captura de tela da janela atual é feita e incluída no arquivo PDF/PNG.
